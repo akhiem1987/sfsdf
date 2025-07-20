@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sideline OTP</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 2em; background-color: #f7f7f7; }
+    .container { max-width: 500px; margin: auto; background: white; padding: 2em; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, button, textarea { width: 100%; padding: 10px; margin-top: 10px; font-size: 16px; }
+    textarea { resize: vertical; }
+    .result { margin-top: 20px; padding: 1em; background: #eee; border-radius: 5px; word-break: break-word; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Sideline OTP</h2>
+
+    <div id="roleSelect">
+      <button onclick="selectRole('user')">User</button>
+      <button onclick="selectRole('admin')">Admin</button>
+    </div>
+
+    <div id="loginForm" class="hidden">
+      <input type="password" id="adminPassword" placeholder="Enter admin password">
+      <button onclick="login()">Login</button>
+      <div id="loginResult" class="result"></div>
+    </div>
+
+    <div id="otpSection" class="hidden">
+      <div id="apiKeyBlock">
+        <input type="text" id="apiKeyInput" placeholder="Enter API Key (optional if blank)">
+      </div>
+      <input type="text" id="phoneInput" placeholder="Enter phone number (e.g. 4022106159)">
+      <button onclick="getOTPByPhone()">Get OTP</button>
+      <div id="result" class="result"></div>
+    </div>
+
+    <div id="adminTools" class="hidden">
+      <hr>
+      <h3>Export ID/Phone data</h3>
+      <button onclick="exportPhoneMap()">Download ID_PhoneMap.json</button>
+
+      <hr>
+      <h3>Import ID/Phone data</h3>
+      <textarea id="importInput" rows="6" placeholder="Paste lines: ID|phone\nID|phone\n..."></textarea>
+      <button onclick="importPhoneMap()">Import</button>
+      <div id="importResult" class="result"></div>
+    </div>
+  </div>
+
+  <script>
+    const proxyBaseURL = "https://slotp1.akhiem-1987.workers.dev";
+    const adminPass = "akhiem2025";
+    let apiKey = "MQgRf8W6ANC12H0HyUPCfiACv3O6sr";
+    let selectedRole = "user";
+
+    const phoneMap = [
+      { "phone": "4022106159", "id": "297045661" },
+      { "phone": "3177409890", "id": "297045672" }
+    ];
+
+    function selectRole(role) {
+      selectedRole = role;
+      document.getElementById("roleSelect").classList.add("hidden");
+
+      if (role === 'admin') {
+        document.getElementById("loginForm").classList.remove("hidden");
+      } else {
+        document.getElementById("otpSection").classList.remove("hidden");
+        document.getElementById("apiKeyBlock").style.display = "none";
+      }
+    }
+
+    function login() {
+      const inputPass = document.getElementById("adminPassword").value;
+      const resultBox = document.getElementById("loginResult");
+      if (inputPass === adminPass) {
+        document.getElementById("loginForm").classList.add("hidden");
+        document.getElementById("otpSection").classList.remove("hidden");
+        document.getElementById("adminTools").classList.remove("hidden");
+        document.getElementById("apiKeyBlock").style.display = "block";
+      } else {
+        resultBox.innerHTML = "Wrong admin password.";
+      }
+    }
+
+    async function getOTPByPhone() {
+      const phone = document.getElementById("phoneInput").value.trim();
+      const keyInput = document.getElementById("apiKeyInput").value.trim();
+      const resultBox = document.getElementById("result");
+      if (selectedRole === 'admin' && keyInput) apiKey = keyInput;
+
+      if (!phone) return resultBox.innerHTML = "Please enter a phone number.";
+
+      const match = phoneMap.find(entry => entry.phone === phone);
+      if (!match) {
+        resultBox.innerHTML = "No ID found for this phone number.";
+        return;
+      }
+
+      const id = match.id;
+      resultBox.innerHTML = `Checking OTP for ID: ${id}...`;
+
+      try {
+        const [extraRes, statusRes] = await Promise.all([
+          fetch(`${proxyBaseURL}/?action=getExtraActivation&id=${id}&apikey=${apiKey}`),
+          fetch(`${proxyBaseURL}/?action=getStatus&id=${id}&apikey=${apiKey}`)
+        ]);
+
+        const [extraText, statusText] = await Promise.all([
+          extraRes.text(),
+          statusRes.text()
+        ]);
+
+        if (extraText.includes("ACCESS_EXTRA_ACTIVATION")) {
+          const parts = extraText.split(":");
+          const sms = parts.slice(2).join(":").trim();
+          resultBox.innerHTML = `<b>OTP (extra):</b> ${sms}`;
+          return;
+        }
+
+        if (statusText.includes("STATUS_OK")) {
+          const parts = statusText.split(":");
+          const sms = parts.slice(2).join(":").trim();
+          resultBox.innerHTML = `<b>OTP (status):</b> ${sms}`;
+        } else {
+          resultBox.innerHTML = `No OTP found. Status: ${statusText}`;
+        }
+
+      } catch (err) {
+        resultBox.innerHTML = `Error connecting to server. Check proxy URL or try again later.<br><small>${err.message}</small>`;
+      }
+    }
+
+    function exportPhoneMap() {
+      const dataStr = JSON.stringify(phoneMap, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ID_PhoneMap.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importPhoneMap() {
+      const input = document.getElementById("importInput").value;
+      const resultBox = document.getElementById("importResult");
+      try {
+        const lines = input.trim().split("\n");
+        let count = 0;
+        lines.forEach(line => {
+          const parts = line.split("|");
+          if (parts.length === 2) {
+            const id = parts[0].trim();
+            let phone = parts[1].trim();
+            if (phone.startsWith("+1")) phone = phone.slice(2);
+            if (id && phone && !phoneMap.some(p => p.phone === phone)) {
+              phoneMap.push({ id, phone });
+              count++;
+            }
+          }
+        });
+        resultBox.innerHTML = `✅ ${count} entries imported successfully.`;
+      } catch (e) {
+        resultBox.innerHTML = "❌ Failed to import. Check the format (ID|phone).";
+      }
+    }
+  </script>
+</body>
+</html>
