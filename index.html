@@ -31,6 +31,7 @@
     <div id="otpSection" class="hidden">
       <div id="apiKeyBlock">
         <input type="text" id="apiKeyInput" placeholder="Enter API Key (optional if blank)">
+        <button onclick="saveApiKey()">Save API Key</button>
       </div>
       <input type="text" id="phoneInput" placeholder="Enter phone number (e.g. 4022106159)">
       <button onclick="getOTPByPhone()">Get OTP</button>
@@ -89,6 +90,15 @@
       }
     }
 
+    function saveApiKey() {
+      const keyInput = document.getElementById("apiKeyInput").value.trim();
+      if (keyInput) {
+        apiKey = keyInput;
+        localStorage.setItem("savedApiKey", apiKey);
+        alert("API key saved.");
+      }
+    }
+
     async function getOTPByPhone() {
       const phoneRaw = document.getElementById("phoneInput").value.trim();
       const keyInput = document.getElementById("apiKeyInput").value.trim();
@@ -124,14 +134,14 @@
         ]);
 
         if (extraText.includes("ACCESS_EXTRA_ACTIVATION")) {
-          const parts = extraText.split(":");
+          const parts = extraText.split(":" );
           const sms = parts.slice(2).join(":" ).trim();
           resultBox.innerHTML = `<b>OTP (extra):</b> ${sms}`;
           return;
         }
 
         if (statusText.includes("STATUS_OK")) {
-          const parts = statusText.split(":");
+          const parts = statusText.split(":" );
           const sms = parts.slice(2).join(":" ).trim();
           resultBox.innerHTML = `<b>OTP (status):</b> ${sms}`;
         } else {
