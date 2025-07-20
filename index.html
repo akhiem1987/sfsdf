@@ -120,15 +120,17 @@
       resultBox.innerHTML = `Checking OTP for ID: ${id}...`;
 
       try {
-        const response = await fetch(`${proxyBaseURL}/?action=readMessages&id=${id}&apikey=${apiKey}`);
+        const response = await fetch(`${proxyBaseURL}/?action=getStatus&id=${id}&apikey=${apiKey}`);
         const text = await response.text();
 
-        if (text.includes("STATUS_OK")) {
+        if (text.startsWith("STATUS_OK")) {
           const parts = text.split(":" );
           const sms = parts.slice(2).join(":" ).trim();
           resultBox.innerHTML = `<b>OTP:</b> ${sms}`;
+        } else if (text.startsWith("STATUS_WAIT_CODE")) {
+          resultBox.innerHTML = `⏳ Waiting for OTP...`;
         } else {
-          resultBox.innerHTML = `No OTP found. Status: ${text}`;
+          resultBox.innerHTML = `❌ No OTP found. Status: ${text}`;
         }
 
       } catch (err) {
