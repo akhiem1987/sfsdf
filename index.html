@@ -57,10 +57,7 @@
     let selectedRole = "user";
     let apiKey = localStorage.getItem("savedApiKey") || "MQgRf8W6ANC12H0HyUPCfiACv3O6sr";
 
-    const phoneMap = [
-      { "phone": "4022106159", "id": "297045661" },
-      { "phone": "3177409890", "id": "297045672" }
-    ];
+    let phoneMap = JSON.parse(localStorage.getItem("savedPhoneMap") || "[]");
 
     function selectRole(role) {
       selectedRole = role;
@@ -169,20 +166,21 @@
       const resultBox = document.getElementById("importResult");
       try {
         const lines = input.trim().split("\n");
-        let count = 0;
+        let newMap = [];
         lines.forEach(line => {
           const parts = line.split("|");
           if (parts.length === 2) {
             const id = parts[0].trim();
             let phone = parts[1].trim();
             if (phone.startsWith("+1")) phone = phone.slice(2);
-            if (id && phone && !phoneMap.some(p => p.phone === phone)) {
-              phoneMap.push({ id, phone });
-              count++;
+            if (id && phone) {
+              newMap.push({ id, phone });
             }
           }
         });
-        resultBox.innerHTML = `✅ ${count} entries imported successfully.`;
+        phoneMap = newMap;
+        localStorage.setItem("savedPhoneMap", JSON.stringify(phoneMap));
+        resultBox.innerHTML = `✅ ${newMap.length} entries imported successfully.`;
       } catch (e) {
         resultBox.innerHTML = "❌ Failed to import. Check the format (ID|phone).";
       }
