@@ -109,7 +109,7 @@
       if (!phoneRaw) return resultBox.innerHTML = "Please enter a phone number.";
 
       const normalized = phoneRaw.replace(/^\+?1/, "");
-      const match = phoneMap.find(entry => entry.phone === normalized);
+      const match = phoneMap.find(entry => entry.phone === normalized || entry.phone === phoneRaw);
 
       if (!match) {
         resultBox.innerHTML = "No ID found for this phone number.";
@@ -120,29 +120,15 @@
       resultBox.innerHTML = `Checking OTP for ID: ${id}...`;
 
       try {
-        const [extraRes, statusRes] = await Promise.all([
-          fetch(`${proxyBaseURL}/?action=getExtraActivation&id=${id}&apikey=${apiKey}`),
-          fetch(`${proxyBaseURL}/?action=getStatus&id=${id}&apikey=${apiKey}`)
-        ]);
+        const response = await fetch(`${proxyBaseURL}/?action=readMessages&id=${id}&apikey=${apiKey}`);
+        const text = await response.text();
 
-        const [extraText, statusText] = await Promise.all([
-          extraRes.text(),
-          statusRes.text()
-        ]);
-
-        if (extraText.includes("ACCESS_EXTRA_ACTIVATION")) {
-          const parts = extraText.split(":" );
+        if (text.includes("STATUS_OK")) {
+          const parts = text.split(":" );
           const sms = parts.slice(2).join(":" ).trim();
-          resultBox.innerHTML = `<b>OTP (extra):</b> ${sms}`;
-          return;
-        }
-
-        if (statusText.includes("STATUS_OK")) {
-          const parts = statusText.split(":" );
-          const sms = parts.slice(2).join(":" ).trim();
-          resultBox.innerHTML = `<b>OTP (status):</b> ${sms}`;
+          resultBox.innerHTML = `<b>OTP:</b> ${sms}`;
         } else {
-          resultBox.innerHTML = `No OTP found. Status: ${statusText}`;
+          resultBox.innerHTML = `No OTP found. Status: ${text}`;
         }
 
       } catch (err) {
