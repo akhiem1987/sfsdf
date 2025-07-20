@@ -33,8 +33,8 @@
         <input type="text" id="apiKeyInput" placeholder="Enter API Key (optional if blank)">
         <button onclick="saveApiKey()">Save API Key</button>
       </div>
-      <input type="text" id="phoneInput" placeholder="Enter phone number (e.g. 4022106159)">
-      <button onclick="getOTPByPhone()">Get OTP</button>
+      <input type="text" id="phoneInput" placeholder="Enter phone number or ID">
+      <button onclick="getOTP()">Get OTP</button>
       <div id="result" class="result"></div>
     </div>
 
@@ -80,8 +80,6 @@
         document.getElementById("adminTools").classList.remove("hidden");
         document.getElementById("apiKeyBlock").style.display = "block";
         document.getElementById("apiKeyInput").value = apiKey;
-        document.getElementById("phoneInput").style.display = "none";
-        document.querySelector("button[onclick='getOTPByPhone()']").style.display = "none";
       } else {
         resultBox.innerHTML = "Wrong admin password.";
       }
@@ -96,8 +94,8 @@
       }
     }
 
-    async function getOTPByPhone() {
-      const phoneRaw = document.getElementById("phoneInput").value.trim();
+    async function getOTP() {
+      const input = document.getElementById("phoneInput").value.trim();
       const keyInput = document.getElementById("apiKeyInput").value.trim();
       const resultBox = document.getElementById("result");
 
@@ -106,33 +104,33 @@
         localStorage.setItem("savedApiKey", apiKey);
       }
 
-      if (!phoneRaw) return resultBox.innerHTML = "Please enter a phone number.";
+      if (!input) return resultBox.innerHTML = "Please enter a phone number or ID.";
 
-      const normalized = phoneRaw.replace(/^\+?1/, "");
-      const match = phoneMap.find(entry => entry.phone === normalized || entry.phone === phoneRaw);
-
-      if (!match) {
-        resultBox.innerHTML = "No ID found for this phone number.";
-        return;
+      let id = input;
+      if (!/^\d+$/.test(id)) {
+        const normalized = input.replace(/^[+]?1/, "");
+        const match = phoneMap.find(entry => entry.phone === normalized || entry.phone === input);
+        if (!match) {
+          resultBox.innerHTML = "No ID found for this phone number.";
+          return;
+        }
+        id = match.id;
       }
 
-      const id = match.id;
       resultBox.innerHTML = `Checking OTP for ID: ${id}...`;
 
       try {
-        const response = await fetch(`${proxyBaseURL}/?action=getStatus&id=${id}&apikey=${apiKey}`);
-        const text = await response.text();
+        const response = await fetch(`${proxyBaseURL}/readMessages?id=${id}&apikey=${apiKey}`);
+        const data = await response.json();
 
-        if (text.startsWith("STATUS_OK")) {
-          const parts = text.split(":" );
-          const sms = parts.slice(2).join(":" ).trim();
-          resultBox.innerHTML = `<b>OTP:</b> ${sms}`;
-        } else if (text.startsWith("STATUS_WAIT_CODE")) {
+        if (data.status === "success" && Array.isArray(data.messages) && data.messages.length > 0) {
+          const otp = data.messages[0].message;
+          resultBox.innerHTML = `<b>OTP:</b> ${otp}`;
+        } else if (data.status === "waiting") {
           resultBox.innerHTML = `⏳ Waiting for OTP...`;
         } else {
-          resultBox.innerHTML = `❌ No OTP found. Status: ${text}`;
+          resultBox.innerHTML = `❌ No OTP found. Status: ${data.status}`;
         }
-
       } catch (err) {
         resultBox.innerHTML = `Error connecting to server. Check proxy URL or try again later.<br><small>${err.message}</small>`;
       }
