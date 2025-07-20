@@ -53,8 +53,8 @@
   <script>
     const proxyBaseURL = "https://slotp1.akhiem-1987.workers.dev";
     const adminPass = "akhiem2025";
-    let apiKey = "MQgRf8W6ANC12H0HyUPCfiACv3O6sr";
     let selectedRole = "user";
+    let apiKey = localStorage.getItem("savedApiKey") || "MQgRf8W6ANC12H0HyUPCfiACv3O6sr";
 
     const phoneMap = [
       { "phone": "4022106159", "id": "297045661" },
@@ -81,20 +81,29 @@
         document.getElementById("otpSection").classList.remove("hidden");
         document.getElementById("adminTools").classList.remove("hidden");
         document.getElementById("apiKeyBlock").style.display = "block";
+        document.getElementById("apiKeyInput").value = apiKey;
+        document.getElementById("phoneInput").style.display = "none";
+        document.querySelector("button[onclick='getOTPByPhone()']").style.display = "none";
       } else {
         resultBox.innerHTML = "Wrong admin password.";
       }
     }
 
     async function getOTPByPhone() {
-      const phone = document.getElementById("phoneInput").value.trim();
+      const phoneRaw = document.getElementById("phoneInput").value.trim();
       const keyInput = document.getElementById("apiKeyInput").value.trim();
       const resultBox = document.getElementById("result");
-      if (selectedRole === 'admin' && keyInput) apiKey = keyInput;
 
-      if (!phone) return resultBox.innerHTML = "Please enter a phone number.";
+      if (selectedRole === 'admin' && keyInput) {
+        apiKey = keyInput;
+        localStorage.setItem("savedApiKey", apiKey);
+      }
 
-      const match = phoneMap.find(entry => entry.phone === phone);
+      if (!phoneRaw) return resultBox.innerHTML = "Please enter a phone number.";
+
+      const normalized = phoneRaw.replace(/^\+?1/, "");
+      const match = phoneMap.find(entry => entry.phone === normalized);
+
       if (!match) {
         resultBox.innerHTML = "No ID found for this phone number.";
         return;
@@ -116,14 +125,14 @@
 
         if (extraText.includes("ACCESS_EXTRA_ACTIVATION")) {
           const parts = extraText.split(":");
-          const sms = parts.slice(2).join(":").trim();
+          const sms = parts.slice(2).join(":" ).trim();
           resultBox.innerHTML = `<b>OTP (extra):</b> ${sms}`;
           return;
         }
 
         if (statusText.includes("STATUS_OK")) {
           const parts = statusText.split(":");
-          const sms = parts.slice(2).join(":").trim();
+          const sms = parts.slice(2).join(":" ).trim();
           resultBox.innerHTML = `<b>OTP (status):</b> ${sms}`;
         } else {
           resultBox.innerHTML = `No OTP found. Status: ${statusText}`;
